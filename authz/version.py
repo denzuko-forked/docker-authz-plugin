@@ -11,5 +11,6 @@
 __pkgname__ = "docker-authz-plugin"
 __author__ = "Dwight Spencer"
 __author_email__ = "support@dapla.net"
+__licence__ = "MIT License, see LICENSE for more details."
 __versioninfo__ = (0, 0, 1)
 __version__ = '.'.join(map(str, __versioninfo__))
