@@ -1,64 +1,102 @@
+# -~- coding: utf-8 -~-
 import base64, json
 
 from flask import Flask, jsonify, request
 
-app = Flask(__name__)
-application = app
+class AuthSuccess(Exception):
+   def __init__(self, message=""):
+        
+        if not message:
+            message = "The request authorization succeeded."
 
+        # Call the base class constructor with the parameters it needs
+        super(AuthSuccess, self).__init__(message)
+        
+        self.allow = True
+        
+class AuthFailure(Exception):
+   def __init__(self, message="", error=""):
+    
+        if not message:
+            message = "The request authorization failed. You must say hello first"
+        
+        if not error:
+            error = "You must say hello first."
+        
+        # Call the base class constructor with the parameters it needs
+        super(AuthFailure, self).__init__(message)
+        
+        self.allow = False
+        self.error = error
 
-def _has_said_hello():
-    with open('/var/run/authz-said-hello.txt', 'r') as hello_file:
-        has_said_hello = hello_file.read()
+class DockerAuthApp(object):
 
-    return has_said_hello == 'True'
+    def __init__(self, *args, **kwargs):
+        self.app = Flask(__name__)
+        self.auth_file = kwargs.get('auth_file', '/dev/shm/authz-said-hello.run')
+        self.implements = ['authz']
+        
+    def _has_said_hello(self):
+        with open(self.auth_file), 'r') as hello_fd:
+            said_hello = hello_fd.read()
+            
+        self.has_said_hello = True if said_hello is 'True' else False
+        
+    def _set_said_hello(self, value):
+        self.has_said_hello = value
+        with open(self.auth_file, 'w') as hello_fd:
+            hello_fd.write(str(self.has_said_hello))
 
-def _set_said_hello(said_hello):
-    with open('/var/run/authz-said-hello.txt', 'w') as hello_file:
-        hello_file.write(str(said_hello))
+    @app.route("/")
+    def index():
+        return "Docker Authz Plugin"
+        
+    @app.route("/Plugin.Activate", methods=['POST'])
+    def activate():
+        return jsonify({'Implements': self.implements})
+    
+    @app.route("/AuthZPlugin.AuthZReq", methods=['POST'])
+    def authz_request():
+        print("AuthZ Request")
+        print(request.data)
+        plugin_request = json.loads(request.data)
+        
+        response = {"Allow": False, "Msg": str() }
+        
+        try:
+            if self._has_said_hello():
+                raise AuthSuccess()
 
-@app.route("/")
-def index():
-    return "Docker Authz Plugin"
+            elif 'RequestBody' in plugin_request:
+                
+                docker_request = json.loads(base64.b64decode(plugin_request['RequestBody'])
 
-@app.route("/Plugin.Activate", methods=['POST'])
-def activate():
-    return jsonify({'Implements': ['authz']})
-
-@app.route("/AuthZPlugin.AuthZReq", methods=['POST'])
-def authz_request():
-    print("AuthZ Request")
-    print(request.data)
-
-    plugin_request = json.loads(request.data)
-    has_said_hello = _has_said_hello()
-
-    if has_said_hello:
-        response = {"Allow": True,
-                    "Msg":   "The request authorization succeeded."}
-    elif 'RequestBody' in plugin_request:
-            encoded_docker_request = plugin_request['RequestBody']
-            docker_request = json.loads(base64.b64decode(encoded_docker_request))
-
-            if docker_request['Image'] == 'hello-world':
-                _set_said_hello(True)
-                response = {"Allow": True,
-                            "Msg":   "The request authorization succeeded. Thanks for saying hello!"}
+                if docker_request['Image'] is 'hello-world':
+                    self._set_said_hello(True)
+                    raise AuthSuccess()
+                else
+                    raise AuthFailure()
             else:
-                response = {"Allow": False,
-                            "Msg":   "The request authorization failed. You must say hello first",
-                            "Err":   "You must say hello first."}
-    else:
-        response = {"Allow": False,
-                    "Msg":   "The request authorization failed. You must say hello first",
-                    "Err":   "You must say hello first."}
-
-    return jsonify(**response)
-
-@app.route("/AuthZPlugin.AuthZRes", methods=['POST'])
-def authz_response():
-    print("AuthZ Response")
-    response = {"Allow": True}
-    return jsonify(**response)
+                raise AuthFailure()
+                                            
+         catch AuthSuccess as success:
+            response['Allow'] = success.allow
+            response['Msg'] = success.message
+ 
+         catch AuthFailure as failure:
+            response["Allow"] = failure.allow
+            response["Msg"] = failure.message
+            response["Err"] = failure.error
+         
+         finally:
+             return jsonify(**response)
+                                            
+    @app.route("/AuthZPlugin.AuthZRes", methods=['POST'])
+    def authz_response():
+        print("AuthZ Response")
+        response = {"Allow": True}
+        return jsonify(**response)
 
 if __name__ == "__main__":
-    app.run()
+    APP = DockerAuthApp()
+    APP.app.run()
