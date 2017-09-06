@@ -35,6 +35,8 @@ class DockerAuthApp(object):
         self.app = Flask(__name__)
         self.auth_file = kwargs.get('auth_file', '/dev/shm/authz-said-hello.run')
         self.implements = ['authz']
+      
+        self._set_said_hello(False)
         
     def _has_said_hello(self):
         with open(self.auth_file), 'r') as hello_fd:
