@@ -98,7 +98,3 @@ class DockerAuthApp(object):
         print("AuthZ Response")
         response = {"Allow": True}
         return jsonify(**response)
-
-if __name__ == "__main__":
-    APP = DockerAuthApp()
-    APP.app.run()
