@@ -1,8 +1,8 @@
 # -~- coding: utf-8 -~-
 
-from authz.version import __version__
-from authz.version import __author__
-from authz.version import __licence__
+from .version import __version__
+from .version import __author__
+from .version import __licence__
 
 class AuthSuccess(Exception):
    def __init__(self, message=""):
