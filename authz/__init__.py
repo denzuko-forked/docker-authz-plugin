@@ -3,6 +3,7 @@
 from .version import __version__
 from .version import __author__
 from .version import __licence__
+
 from .exceptions import AuthSuccess, AuthFailure
 
 import base64, json
